@@ -1,11 +1,11 @@
 
-#ifndef ST3215_H
-#define ST3215_H
+#ifndef STServo_H
+#define STServo_H
 
 #include <Arduino.h>
 #include <HardwareSerial.h>
+#include <stdexcept>
 #include <vector>
-#include <map>
 
 // 自定义异常类
 class SerialTimeoutException : public std::runtime_error {
@@ -38,8 +38,8 @@ namespace STSMemoryMap {
     const uint8_t PRESENT_LOAD        = 0x3C;
     const uint8_t PRESENT_VOLTAGE     = 0x3E;
     const uint8_t PRESENT_TEMPERATURE = 0x3F;
+    const uint8_t ASYNC_ACTION        = 0x40;
     const uint8_t SERVO_STATUS        = 0x41;
-    const uint8_t ASYNC_ACTION        = 0x42;
     const uint8_t MOVING              = 0x42;
     const uint8_t PRESENT_CURRENT     = 0x45;
 }
@@ -49,7 +49,7 @@ namespace SCSMemoryMap {
     const uint8_t EPROM_LOCK          = 0x37;
 }
 
-class ST3215 {
+class STServo {
     public:
         // 舵机协议指令定义
         static const uint8_t INST_PING       = 0x01;
@@ -86,51 +86,52 @@ class ST3215 {
         uint8_t MEM_ADDR_MOVING;
         uint8_t MEM_ADDR_PRESENT_CURRENT;
         
-    private:
+    protected:
         HardwareSerial* _serial;
-        uint8_t _model;
-        bool _debugEnabled;
-        uint32_t _timeout;
+        uint8_t         _model;
+        bool            _debugEnabled;
+        uint32_t        _timeout;
 
         // 私有辅助方法
         uint8_t               calculate_checksum(const std::vector<uint8_t>& data);
-        std::vector<uint8_t>  make_a_packet(uint8_t dev_id, uint8_t instruction, const std::vector<uint8_t>& params_tx);
-        uint8_t               serial_read_a_byte(const char* errMsg);
-        bool                  receive_packet(uint8_t dev_id, uint8_t& error, std::vector<uint8_t>& params_rx);
+        bool                  receive_packet(uint8_t dev_id, uint8_t& error,            std::vector<uint8_t>& params_rx);
+        std::vector<uint8_t>  make_a_packet( uint8_t dev_id, uint8_t instruction, const std::vector<uint8_t>& params_tx);
+        uint8_t               serial_read_a_byte(const std::string& errMsg);
         void                  update_memory_map();
 
     public:
         // 构造函数和析构函数
-        ST3215(HardwareSerial& serial, uint32_t baudrate = 1000000, bool debugEnabled = false);
-        ~ST3215();
+        STServo(HardwareSerial& serial, uint32_t baudrate = 1000000, bool debugEnabled = false);
+        ~STServo();
         
         // 初始化和清理方法
         bool begin();
         void end();
         
         // 核心通信方法
-        bool ping(uint8_t dev_id, uint8_t& error, std::vector<uint8_t>& params_rx);
-        bool read(uint8_t dev_id, uint8_t mem_addr, uint8_t length, uint8_t& error, std::vector<uint8_t>& params_rx);
+        bool ping(      uint8_t dev_id,                                                     uint8_t& error, std::vector<uint8_t>& params_rx);
+        bool read(      uint8_t dev_id, uint8_t mem_addr, uint8_t length,                   uint8_t& error, std::vector<uint8_t>& params_rx);
         bool write_data(uint8_t dev_id, uint8_t mem_addr, const std::vector<uint8_t>& data, uint8_t& error, std::vector<uint8_t>& params_rx);
-        bool write_int(uint8_t dev_id, uint8_t mem_addr, int value, uint8_t& error, std::vector<uint8_t>& params_rx);
-        bool reg_write(uint8_t dev_id, uint8_t mem_addr, const std::vector<uint8_t>& data, uint8_t& error, std::vector<uint8_t>& params_rx);
+        bool write_int( uint8_t dev_id, uint8_t mem_addr, int value,                        uint8_t& error, std::vector<uint8_t>& params_rx);
+        bool reg_write( uint8_t dev_id, uint8_t mem_addr, const std::vector<uint8_t>& data, uint8_t& error, std::vector<uint8_t>& params_rx);
         bool action();
-        bool sync_write(const std::vector<uint8_t>& dev_id_arr, uint8_t mem_addr, 
-                       const std::vector<std::vector<uint8_t>>& dataArray);
-        bool sync_read(const std::vector<uint8_t>& dev_id_arr, uint8_t mem_addr, uint8_t length,
-                      std::map<uint8_t, std::vector<uint8_t>>& params_rx_arr);
+        bool sync_write(const std::vector<uint8_t>& dev_id_vec, uint8_t mem_addr, 
+                        const std::vector<std::vector<uint8_t>>& params_tx_vec);
+        bool sync_read( const std::vector<uint8_t>& dev_id_vec, uint8_t mem_addr, uint8_t length,
+                              std::vector<std::vector<uint8_t>>& params_rx_vec);
         
         // 调试和工具方法
         void printPacket(const std::vector<uint8_t>& packet);
         
         // 字节序转换工具方法
         void intToBytes(int value, uint8_t& lowByte, uint8_t& highByte);
-        int bytesToInt(uint8_t lowByte, uint8_t highByte);
+        int  bytesToInt(           uint8_t  lowByte, uint8_t  highByte);
         
         // 配置方法
-        void setDebug(bool enabled) { _debugEnabled = enabled; }
-        void setTimeout(uint32_t timeout) { _timeout = timeout; }
-        void setModel(uint8_t model) { _model = model; update_memory_map(); }
+        void setDebug(bool enabled);
+        void setTimeout(uint32_t timeout);
+        void setModel(uint8_t model);
+        
 };
 
-#endif // ST3215_H
+#endif // STServo_H
